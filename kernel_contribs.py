@@ -77,7 +77,6 @@ def get_commit_count(repo_path: Optional[str], git_dir: Optional[str]) -> int:
 def collect_stats(
     repo_path: Optional[str],
     git_dir: Optional[str],
-    fast: bool,
     progress_every: int,
 ) -> Dict[str, Dict[str, int]]:
     stats: Dict[str, Dict[str, int]] = {}
@@ -99,8 +98,7 @@ def collect_stats(
         ],
         git_dir,
     )
-    if fast:
-        cmd.extend(["--no-renames", "--no-ext-diff"])
+    cmd.extend(["--no-renames", "--no-ext-diff"])
     process = subprocess.Popen(
         cmd,
         cwd=repo_path,
@@ -218,11 +216,6 @@ def main() -> int:
         help="LoC metric for secondary sorting (default: total).",
     )
     parser.add_argument(
-        "--fast",
-        action="store_true",
-        help="Faster log parsing (disables rename detection and ext diff).",
-    )
-    parser.add_argument(
         "--progress-every",
         type=int,
         default=5000,
@@ -244,7 +237,7 @@ def main() -> int:
     else:
         ensure_repo(repo_path, args.refresh)
 
-    stats = collect_stats(repo_path, git_dir, args.fast, args.progress_every)
+    stats = collect_stats(repo_path, git_dir, args.progress_every)
 
     def sort_key(item: Tuple[str, Dict[str, int]]):
         org, s = item
