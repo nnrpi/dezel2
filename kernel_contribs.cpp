@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -6,7 +7,6 @@
 #include <fstream>
 #include <getopt.h>
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
