@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <getopt.h>
+#include <sys/wait.h>
 #include <iostream>
 #include <string>
 #include <unordered_map>
@@ -39,7 +40,7 @@ static void log_debug(const char* fmt, ...) {
 // ── run_cmd ──────────────────────────────────────────────────────────
 static std::string run_cmd(const std::string& cmd) {
     log_debug("Running command: %s", cmd.c_str());
-    std::string full_cmd = cmd + " 2>/dev/null";
+    std::string full_cmd = g_verbose ? cmd : cmd + " 2>/dev/null";
     FILE* fp = popen(full_cmd.c_str(), "r");
     if (!fp) {
         throw std::runtime_error("popen failed: " + cmd);
@@ -50,8 +51,11 @@ static std::string run_cmd(const std::string& cmd) {
         output += buf;
     }
     int status = pclose(fp);
-    if (status != 0) {
-        throw std::runtime_error("Command failed (exit " + std::to_string(status) + "): " + cmd);
+    if (status == -1) {
+        throw std::runtime_error("pclose failed: " + cmd);
+    }
+    if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+        throw std::runtime_error("Command failed (exit " + std::to_string(WEXITSTATUS(status)) + "): " + cmd);
     }
     return output;
 }
@@ -86,7 +90,7 @@ static void ensure_repo(const std::string& repo_path, bool refresh) {
         if (refresh) {
             log_info("Fetching updates in %s", repo_path.c_str());
             std::string cmd = "cd " + shell_escape(repo_path)
-                + " && git fetch --all --tags --prune";
+                + " && git fetch --all --prune";
             run_cmd(cmd);
         }
         return;
@@ -258,8 +262,11 @@ static std::unordered_map<std::string, OrgStats> collect_stats(
 
     free(line_buf);
     int status = pclose(fp);
-    if (status != 0) {
-        throw std::runtime_error("git log failed (exit " + std::to_string(status) + ")");
+    if (status == -1) {
+        throw std::runtime_error("pclose failed for git log");
+    }
+    if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+        throw std::runtime_error("git log failed (exit " + std::to_string(WEXITSTATUS(status)) + ")");
     }
 
     if (total_commits > 0 && commit_index > 0 && commit_index != total_commits) {
@@ -366,7 +373,11 @@ int main(int argc, char* argv[]) {
             refresh = true;
             break;
         case OPT_TOP:
-            top_n = std::stoi(optarg);
+            try { top_n = std::stoi(optarg); }
+            catch (...) {
+                fprintf(stderr, "Error: --top requires a numeric argument\n");
+                return 1;
+            }
             break;
         case OPT_LOC_METRIC:
             loc_metric = optarg;
@@ -382,7 +393,11 @@ int main(int argc, char* argv[]) {
             fast = false;
             break;
         case OPT_PROGRESS_EVERY:
-            progress_every = std::stoi(optarg);
+            try { progress_every = std::stoi(optarg); }
+            catch (...) {
+                fprintf(stderr, "Error: --progress-every requires a numeric argument\n");
+                return 1;
+            }
             break;
         default:
             usage(argv[0]);
