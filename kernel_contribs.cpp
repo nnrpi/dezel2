@@ -39,7 +39,8 @@ static void log_debug(const char* fmt, ...) {
 // ── run_cmd ──────────────────────────────────────────────────────────
 static std::string run_cmd(const std::string& cmd) {
     log_debug("Running command: %s", cmd.c_str());
-    FILE* fp = popen(cmd.c_str(), "r");
+    std::string full_cmd = cmd + " 2>/dev/null";
+    FILE* fp = popen(full_cmd.c_str(), "r");
     if (!fp) {
         throw std::runtime_error("popen failed: " + cmd);
     }
@@ -189,6 +190,7 @@ static std::unordered_map<std::string, OrgStats> collect_stats(
             + " && git log --numstat '--format=@@@%ae'";
     }
     if (fast) cmd += " --no-renames --no-ext-diff";
+    cmd += " 2>/dev/null";
 
     FILE* fp = popen(cmd.c_str(), "r");
     if (!fp) throw std::runtime_error("popen failed for git log");
